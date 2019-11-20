@@ -1,27 +1,35 @@
-import Etcd from 'node-etcd'
+import { Etcd3 } from 'etcd3'
 import ConfetaText from 'confeta-text'
+import deasync from 'deasync'
 
 class ConfetaEtcd extends ConfetaText {
   constructor (hosts, path, etcdOptions = {}, confetaOptions = {}) {
-    const etcd = new Etcd(hosts, etcdOptions)
-    const result = etcd.getSync(path)
+    try {
+      const etcd = new Etcd3(Object.assign({}, { hosts }, etcdOptions))
 
-    let parseFn = confetaOptions.parseFn
-    let value = ''
+      // Etcd3.get returns promise but deasync expects cb.
+      const callbackifyEtcdGet = (args, cb) => {
+        etcd.get(args)
+          .then(x => cb(null, x))
+          .catch(e => cb(e))
+      }
 
-    if (result.err) {
-      if (result.err.errorCode === 100) { // key not found - ignore
+      const callbackifiedGet = deasync(callbackifyEtcdGet)
+      const result = callbackifiedGet(path)
+
+      let parseFn = confetaOptions.parseFn
+      let value = ''
+
+      if (!result) {
         parseFn = () => ({}) // return empty object
       } else {
-        let message = result.err.error && result.err.error.message && ': ' + result.err.error.message
-
-        throw new Error(`Error accessing etcd${message}`)
+        value = result
       }
-    } else {
-      value = result.body.node.value
-    }
 
-    super(value, { parseFn })
+      super(value, { parseFn })
+    } catch (error) {
+      throw new Error(`Error accessing etcd: ${JSON.stringify(error)}`)
+    }
   }
 }
 
