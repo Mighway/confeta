@@ -28,7 +28,7 @@ class ConfetaEtcd extends ConfetaText {
 
       super(value, { parseFn })
     } catch (error) {
-      throw new Error(`Error accessing etcd: ${JSON.stringify(error)}`)
+      throw new Error(`Unhandled error while accessing ETCD: ${error}.`)
     }
   }
 }
